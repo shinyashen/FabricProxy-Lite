@@ -12,23 +12,27 @@ import net.minecraft.server.network.ServerLoginNetworkHandler;
 import net.minecraft.text.Text;
 import one.oktw.mixin.core.ClientConnection_AddressAccessor;
 import one.oktw.mixin.core.ServerLoginNetworkHandlerAccessor;
+
 import org.apache.logging.log4j.LogManager;
 
 import java.util.Optional;
 
 class PacketHandler {
     private final ModConfig config;
-
+    
     PacketHandler(ModConfig config) {
         this.config = config;
     }
-
-    void handleVelocityPacket(MinecraftServer server, ServerLoginNetworkHandler handler, boolean understood, PacketByteBuf buf, ServerLoginNetworking.LoginSynchronizer synchronizer, PacketSender ignored) {
+    void handleVelocityPacket(MinecraftServer server, ServerLoginNetworkHandler handler, boolean understood,
+            PacketByteBuf buf, ServerLoginNetworking.LoginSynchronizer synchronizer, PacketSender ignored) {
         if (!understood) {
-            handler.disconnect(Text.of(config.getAbortedMessage()));
+            if(config.getallowBypassProxy() == false){
+                handler.disconnect(Text.of(config.getAbortedMessage()));
+            }else{
+                handler.onHello(null);
+            }
             return;
         }
-
         synchronizer.waitFor(server.submit(() -> {
             try {
                 if (!VelocityLib.checkIntegrity(buf)) {
@@ -43,7 +47,8 @@ class PacketHandler {
             }
 
             ClientConnection connection = ((ServerLoginNetworkHandlerAccessor) handler).getConnection();
-            ((ClientConnection_AddressAccessor) connection).setAddress(new java.net.InetSocketAddress(VelocityLib.readAddress(buf), ((java.net.InetSocketAddress) (connection.getAddress())).getPort()));
+            ((ClientConnection_AddressAccessor) connection).setAddress(new java.net.InetSocketAddress(
+                    VelocityLib.readAddress(buf), ((java.net.InetSocketAddress) (connection.getAddress())).getPort()));
 
             GameProfile profile;
             try {
@@ -60,5 +65,8 @@ class PacketHandler {
 
             ((ServerLoginNetworkHandlerAccessor) handler).setProfile(profile);
         }));
+            
+        
+        
     }
 }
